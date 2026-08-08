@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14100E">
+<title>مرصد · غرفة العمليات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200;400;600;900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{
+  --ink:#14100E; --ink2:#1C1613; --ink3:#241C18;
+  --line:#332A24; --line2:#443830;
+  --bone:#EFE9E0; --sand:#9C8B7C; --dim:#6B5C50;
+  --verm:#E8562A; --amber:#E2A03F; --moss:#7A8B5A;
+  --paper:#F8F5F0; --rule:#D8D0C4;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+/* الوضع النهاري — خلفية فاتحة للطباعة والاجتماعات */
+body.day{
+  --ink:#F4F1EA; --ink2:#FBFAF7; --ink3:#EDE8DE;
+  --line:#DDD5C8; --line2:#C7BCAA;
+  --bone:#1A1512; --sand:#5A4F45; --dim:#8B7E70;
+  --moss:#5C7040;
+}
+body.day .leaflet-tile{filter:saturate(.85) brightness(1.02)}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'Cairo',system-ui,sans-serif;background:var(--ink);color:var(--bone);
+  -webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:0;background:none;color:inherit}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-thumb{background:var(--line2)}
+:focus-visible{outline:2px solid var(--verm);outline-offset:2px}
+
+/* ═══════════ الشريط العلوي ═══════════ */
+.top{position:sticky;top:0;z-index:60;background:var(--ink2);border-bottom:1px solid var(--line);
+  padding:calc(9px + env(safe-area-inset-top)) 14px 9px;display:flex;align-items:center;gap:12px}
+.bd b{font-size:18px;font-weight:900;letter-spacing:-.02em}
+.bd small{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:.15em;display:block;
+  margin-top:-1px}
+.clock{font-family:var(--mono);font-size:14px;color:var(--bone);font-variant-numeric:tabular-nums;
+  letter-spacing:.04em}
+.sp{flex:1}
+.nxt{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-align:end;line-height:1.4}
+.nxt b{color:var(--verm);font-weight:500}
+.fresh{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;
+  color:var(--sand);border:1px solid var(--line2);border-radius:2px;padding:5px 9px;
+  white-space:nowrap}
+.fresh i{width:6px;height:6px;border-radius:50%;background:var(--c,var(--dim));flex:0 0 auto}
+.fresh.live{--c:var(--moss)} .fresh.warm{--c:var(--amber)} .fresh.cold{--c:var(--verm)}
+.fresh.live i{animation:pulseD 2.4s infinite}
+@keyframes pulseD{0%{box-shadow:0 0 0 0 rgba(122,139,90,.6)}70%{box-shadow:0 0 0 6px rgba(122,139,90,0)}}
+@media(max-width:520px){.fresh span{display:none}.fresh{padding:5px 7px}}
+.rf{width:32px;height:32px;border:1px solid var(--line2);border-radius:2px;display:grid;
+  place-items:center;font-size:14px;color:var(--sand);flex:0 0 auto}
+.rf:active{background:var(--ink3)}
+.rf.on{animation:sp 1s linear infinite;color:var(--verm)}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ═══════════ شريط الحالة ═══════════ */
+.stats{display:flex;gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+.st{flex:1;background:var(--ink2);padding:9px 10px;min-width:0}
+.st u{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:.1em;
+  text-decoration:none;display:block}
+.st b{font-family:var(--mono);font-size:17px;font-weight:500;display:block;margin-top:2px;
+  font-variant-numeric:tabular-nums;line-height:1}
+.st.a b{color:var(--verm)}
+.st.g b{color:var(--moss)}
+
+/* ═══════════ المصادر ═══════════ */
+.srcs{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+  border-bottom:1px solid var(--line)}
+.s{background:var(--ink2);padding:9px 10px;position:relative;overflow:hidden;min-width:0}
+.s::before{content:'';position:absolute;inset-inline-start:0;top:0;bottom:0;width:2px;
+  background:var(--c);opacity:.5}
+.s.hit::after{content:'';position:absolute;inset:0;background:var(--verm);opacity:.18;
+  animation:fd 1.6s ease-out forwards}
+@keyframes fd{to{opacity:0}}
+.s-h{display:flex;align-items:center;gap:5px;margin-bottom:4px}
+.s-h i{width:4px;height:4px;border-radius:50%;background:var(--dim);flex:0 0 auto}
+.s-h i.ok{background:var(--moss)}.s-h i.no{background:var(--verm)}
+.s-h strong{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s-t{font-family:var(--mono);font-size:14px;font-weight:500;line-height:1;
+  font-variant-numeric:tabular-nums}
+.s-t span{font-size:9px;color:var(--dim)}
+.s-c{font-family:var(--mono);font-size:8.5px;color:var(--dim);margin-top:3px}
+.s.off{opacity:.38}.s.off .s-t{color:var(--dim)}
+
+/* ═══════════ الخريطة ═══════════ */
+#map{height:32vh;min-height:230px;background:var(--ink);border-bottom:1px solid var(--line)}
+.leaflet-container{background:var(--ink)!important;font-family:'Cairo',sans-serif}
+.leaflet-tile{filter:sepia(.32) saturate(.55) hue-rotate(-10deg) brightness(.72) contrast(1.08)}
+.leaflet-control-attribution{background:rgba(20,16,14,.82)!important;color:var(--dim)!important;
+  font-size:8px!important}
+.leaflet-control-attribution a{color:var(--dim)!important}
+.leaflet-control-zoom a{background:var(--ink2)!important;color:var(--sand)!important;
+  border-color:var(--line)!important}
+.leaflet-tooltip{background:var(--ink3);color:var(--bone);border:1px solid var(--line2);
+  font-family:'Cairo',sans-serif;font-size:11px;border-radius:2px}
+.leaflet-tooltip::before{display:none}
+
+/* ═══════════ الأعمدة ═══════════ */
+.cols{display:grid;grid-template-columns:1fr 340px;gap:1px;background:var(--line);
+  min-height:calc(100vh - 190px)}
+.col{background:var(--ink);display:flex;flex-direction:column;min-width:0}
+.ch{position:sticky;top:0;z-index:20;background:var(--ink2);border-bottom:1px solid var(--line);
+  padding:10px 14px;display:flex;align-items:baseline;justify-content:space-between}
+.ch h2{font-size:13px;font-weight:900}
+.ch em{font-family:var(--mono);font-size:9px;color:var(--dim);font-style:normal}
+.ch input{background:var(--ink);border:1px solid var(--line2);color:var(--bone);font-size:11px;
+  font-family:inherit;padding:3px 9px;border-radius:2px;width:118px}
+.ch input::placeholder{color:var(--dim)}
+
+/* حدث مجمّع */
+.ev{padding:14px;border-bottom:1px solid var(--line);position:relative;cursor:pointer}
+.ev:hover{background:var(--ink2)}
+.ev::before{content:'';position:absolute;inset-inline-start:0;top:0;bottom:0;width:2px;background:var(--c)}
+.ev-t{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.tag{font-family:var(--mono);font-size:8px;letter-spacing:.04em;color:var(--c);
+  border:1px solid var(--c);border-radius:1px;padding:1px 4px;white-space:nowrap}
+.ago{font-family:var(--mono);font-size:9px;color:var(--dim);margin-inline-start:auto;
+  font-variant-numeric:tabular-nums}
+.ev h3{font-size:14.5px;font-weight:600;line-height:1.55;margin-bottom:5px}
+.ev p{font-size:12px;color:var(--sand);line-height:1.65;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ev-f{display:flex;gap:9px;margin-top:8px;font-family:var(--mono);font-size:8.5px;color:var(--dim)}
+.ev-f .lk{color:var(--verm)}
+.ev.new{animation:land .9s ease-out}
+@keyframes land{from{background:rgba(232,86,42,.13)}}
+
+/* وارد خام */
+.raw{padding:9px 13px;border-bottom:1px solid var(--line);display:flex;gap:8px;
+  align-items:baseline;text-decoration:none;color:inherit}
+.raw:hover{background:var(--ink2)}
+.raw u{font-family:var(--mono);font-size:8px;color:var(--c);text-decoration:none;
+  flex:0 0 26px;padding-top:1px}
+.raw span{flex:1;font-size:11.5px;line-height:1.55;color:var(--sand);min-width:0}
+.raw em{font-family:var(--mono);font-size:8px;color:var(--dim);font-style:normal;flex:0 0 auto;
+  font-variant-numeric:tabular-nums}
+.raw.new{animation:land .9s ease-out}
+.scr{overflow-y:auto;max-height:calc(100vh - 232px)}
+
+/* ═══════════ التفاصيل ═══════════ */
+.sheet{position:fixed;inset:0;z-index:100;background:var(--ink);display:flex;flex-direction:column;
+  transform:translateY(100%);transition:transform .32s cubic-bezier(.22,.8,.28,1)}
+.sheet.on{transform:translateY(0)}
+.sh-t{flex:0 0 auto;padding:calc(10px + env(safe-area-inset-top)) 15px 10px;background:var(--ink2);
+  border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px}
+.sh-t em{font-family:var(--mono);font-size:9px;color:var(--dim);font-style:normal}
+.x{margin-inline-start:auto;width:30px;height:30px;display:grid;place-items:center;font-size:20px;
+  color:var(--sand);border-radius:2px}
+.x:hover{background:var(--ink3)}
+.sh-b{flex:1;overflow-y:auto;padding:18px 16px 24px;-webkit-overflow-scrolling:touch}
+.sh-b h1{font-size:21px;font-weight:900;line-height:1.45;margin-bottom:10px}
+.mt{display:flex;flex-wrap:wrap;gap:4px 14px;font-family:var(--mono);font-size:9.5px;color:var(--dim);
+  padding-bottom:14px;border-bottom:1px solid var(--line)}
+.sec{margin-top:19px}
+.sec h4{font-family:var(--mono);font-size:9px;letter-spacing:.15em;color:var(--dim);
+  margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.sec h4::after{content:'';flex:1;height:1px;background:var(--line)}
+.lede{font-size:13.5px;line-height:1.85;color:var(--bone)}
+.srow{display:flex;align-items:baseline;gap:9px;padding:9px 0;border-bottom:1px solid var(--line);
+  text-decoration:none;color:inherit}
+.srow strong{font-size:11px;flex:0 0 74px;color:var(--c);font-weight:600}
+.srow span{font-size:11.5px;color:var(--sand);flex:1;line-height:1.55}
+.srow em{font-family:var(--mono);font-size:8.5px;color:var(--dim);font-style:normal}
+.srow:hover span{color:var(--bone)}
+.sh-f{flex:0 0 auto;background:var(--ink3);border-top:1px solid var(--line2);
+  padding:11px 15px calc(11px + env(safe-area-inset-bottom));display:flex;gap:8px}
+.ex{flex:1;padding:12px;border:1px solid var(--line2);border-radius:2px;font-size:12.5px;
+  font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px}
+.ex.p{background:var(--verm);border-color:var(--verm);color:#fff}
+.ex:active{opacity:.7}
+.ex em{font-family:var(--mono);font-size:8px;opacity:.6;font-style:normal}
+
+.note{padding:40px 24px;text-align:center;color:var(--dim);font-size:12px;line-height:1.8}
+.note b{display:block;color:var(--sand);font-size:13px;margin-bottom:6px}
+.toast{position:fixed;bottom:calc(16px + env(safe-area-inset-bottom));inset-inline:16px;z-index:300;
+  background:var(--ink3);border:1px solid var(--line2);border-radius:2px;padding:12px 14px;
+  font-size:12px;line-height:1.6;opacity:0;transform:translateY(10px);transition:.24s;
+  pointer-events:none;max-width:440px;margin:0 auto}
+.toast.on{opacity:1;transform:translateY(0)}
+
+/* مؤشرات الثقة والخطورة */
+.gauges{display:flex;gap:9px;margin-top:13px;padding-top:13px;border-top:1px solid var(--line)}
+.gg{flex:1}
+.gg u{font-family:var(--mono);font-size:8px;color:var(--dim);letter-spacing:.1em;
+  text-decoration:none;display:block;margin-bottom:5px}
+.gbar{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.gbar i{display:block;height:100%;background:var(--c);transition:width .4s}
+.gg b{font-size:11px;font-weight:600;color:var(--c);display:block;margin-top:4px}
+
+/* نافذة الذكاء الاصطناعي */
+.ex.aib{border-color:var(--amber);color:var(--amber)}
+.aiwrap{position:fixed;inset:0;z-index:250;background:rgba(10,8,7,.74);display:none;
+  align-items:flex-end;justify-content:center;padding:14px}
+.aiwrap.on{display:flex}
+.aip{background:var(--ink2);border:1px solid var(--line2);border-radius:3px;
+  max-width:460px;width:100%;padding:18px 16px calc(16px + env(safe-area-inset-bottom))}
+.aip h3{font-size:15px;font-weight:900;margin-bottom:8px}
+.aip p{font-size:11.5px;color:var(--sand);line-height:1.75;margin-bottom:12px}
+.aiprov{display:flex;border:1px solid var(--line2);border-radius:2px;overflow:hidden;margin-bottom:10px}
+.aiprov button{flex:1;padding:9px;font-size:12.5px;font-weight:600;color:var(--sand)}
+.aiprov button[aria-pressed=true]{background:var(--bone);color:var(--ink)}
+.aip input{width:100%;background:var(--ink);border:1px solid var(--line2);border-radius:2px;
+  padding:11px;color:var(--bone);font-family:var(--mono);font-size:12px;direction:ltr;
+  text-align:left;margin-bottom:12px}
+.aiact{display:flex;gap:8px}
+.ex.ghost{flex:0 0 auto;padding-inline:14px;color:var(--dim);border-color:var(--line)}
+.aip em{display:block;margin-top:10px;font-family:var(--mono);font-size:9.5px;
+  color:var(--amber);font-style:normal;min-height:13px}
+
+@media(max-width:860px){
+  .cols{grid-template-columns:1fr;min-height:auto}
+  .srcs{grid-template-columns:repeat(2,1fr)}
+  .stats .st:nth-child(4){display:none}
+  .scr{max-height:none;overflow:visible}
+  .col.raw-col{border-top:1px solid var(--line)}
+  .sheet{inset-inline:0}
+}
+@media(min-width:861px){.sheet{inset-inline:max(0px,calc(50% - 320px));max-width:640px;
+  border-inline:1px solid var(--line2)}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ═══════════ قالب التقرير · يظهر عند الطباعة فقط ═══════════ */
+#rep{display:none}
+@media print{
+  @page{size:A4;margin:0}
+  body{background:#fff!important}
+  body>*:not(#rep){display:none!important}
+  #rep{display:block!important}
+  .pg{width:210mm;min-height:296mm;padding:15mm 14mm 13mm;background:var(--paper);color:#141210;
+    position:relative;page-break-after:always;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pg:last-child{page-break-after:auto}
+  .pg::before{content:'';position:absolute;top:0;left:0;right:0;height:4mm;background:var(--verm)}
+  .run{display:flex;justify-content:space-between;font-family:var(--mono);font-size:7.5pt;
+    color:#6E6154;letter-spacing:.07em;padding-bottom:4mm;border-bottom:.4pt solid var(--rule);
+    margin-bottom:8mm}
+  .kick{font-size:42pt;font-weight:900;letter-spacing:-.03em;text-align:center;line-height:1}
+  .kickS{font-family:var(--mono);font-size:10pt;letter-spacing:.4em;color:var(--verm);
+    text-align:center;margin-top:3mm}
+  .rul{width:25mm;height:1.6pt;background:#141210;margin:7mm auto}
+  .tit{font-size:22pt;font-weight:900;line-height:1.42;text-align:center}
+  .sub{font-family:var(--mono);font-size:8.5pt;color:#6E6154;text-align:center;margin-top:3mm}
+  .hero{margin:8mm 0;height:56mm;background:#1C1815;overflow:hidden;position:relative}
+  .hero img{width:100%;height:100%;object-fit:cover}
+  .hero figcaption{position:absolute;left:0;right:0;bottom:0;padding:8mm 4mm 3mm;font-size:7.5pt;
+    color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.82))}
+  .figrow{display:grid;grid-template-columns:repeat(3,1fr);gap:2.5mm}
+  .figrow figure{height:36mm;background:#1C1815;position:relative;overflow:hidden}
+  .figrow img{width:100%;height:100%;object-fit:cover}
+  .figrow figcaption{position:absolute;left:0;right:0;bottom:0;padding:6mm 2.5mm 2mm;font-size:6.5pt;
+    color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.85))}
+  figure.dead{display:none!important}
+  .eye{font-family:var(--mono);font-size:7.5pt;letter-spacing:.2em;color:var(--verm);margin-bottom:1.5mm}
+  .h2p{font-size:16pt;font-weight:900;letter-spacing:-.015em;display:inline-block;padding-bottom:2mm;
+    border-bottom:1.6pt solid #141210;margin-bottom:6mm}
+  .pt{display:flex;gap:5mm;margin-bottom:5mm;align-items:flex-start}
+  .ptN{flex:0 0 9mm;height:9mm;background:#141210;color:var(--paper);font-family:var(--mono);
+    font-size:9pt;display:flex;align-items:center;justify-content:center}
+  .ptT{flex:1;font-size:9.5pt;line-height:1.6;color:#332C26;padding-top:.7mm}
+  .ptT b{color:#141210;font-weight:600}
+  .ledeP{font-size:11pt;line-height:1.9;margin-bottom:7mm}
+  table{width:100%;border-collapse:collapse;font-size:9pt}
+  td{padding:2.6mm 3.5mm;border-bottom:.4pt solid var(--rule)}
+  tr:nth-child(even) td{background:rgba(0,0,0,.022)}
+  td:first-child{font-weight:600;width:34%}
+  td.hi{color:var(--verm);font-weight:600}
+  .tl{position:relative;padding-inline-start:21mm}
+  .tl::before{content:'';position:absolute;inset-inline-start:18mm;top:2mm;bottom:2mm;width:.5pt;
+    background:var(--rule)}
+  .tlR{position:relative;padding-bottom:5mm}
+  .tlR::before{content:'';position:absolute;inset-inline-start:-3.6mm;top:1.6mm;width:2.6mm;height:2.6mm;
+    border-radius:50%;background:#141210;box-shadow:0 0 0 1.4mm var(--paper)}
+  .tlR.f::before{background:var(--verm)}
+  .tlT{position:absolute;inset-inline-start:-21mm;top:.3mm;width:16mm;text-align:end;
+    font-family:var(--mono);font-size:7.5pt;color:#6E6154;line-height:1.3}
+  .tlH{font-size:9.5pt;font-weight:600;line-height:1.5}
+  .tlS{font-family:var(--mono);font-size:7pt;color:#6E6154;margin-top:.7mm}
+  .sr{display:flex;gap:3.5mm;padding:2.4mm 0;border-bottom:.4pt solid var(--rule);font-size:8.5pt}
+  .sr b{flex:0 0 28mm;font-weight:600}
+  .sr span{flex:1;color:#4A413A}
+  .ft{position:absolute;bottom:8mm;left:14mm;right:14mm;display:flex;justify-content:space-between;
+    font-family:var(--mono);font-size:6.5pt;color:#6E6154;padding-top:2.5mm;
+    border-top:.4pt solid var(--rule)}
+  .secP{margin-bottom:8mm}
+  .para{font-size:9.5pt;line-height:1.75;color:#332C26;margin-bottom:2.2mm;
+    padding-inline-start:4.5mm;position:relative}
+  .para::before{content:'';position:absolute;inset-inline-start:0;top:2.7mm;
+    width:1.6mm;height:1.6mm;border-radius:50%;background:var(--verm)}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="bd"><b>مرصد</b><small>GITHUB · OPS</small></div>
+  <div class="clock" id="clk">--:--:--</div>
+  <div class="sp"></div>
+  <div class="fresh" id="fresh" title="حالة البيانات"><i></i><span id="freshT">—</span></div>
+  <div class="nxt">السحب التالي<br><b id="nx">—</b></div>
+  <button class="rf" id="mode" onclick="toggleMode()" aria-label="الوضع النهاري">◐</button>
+  <button class="rf" id="bell" onclick="askNotif()" aria-label="تفعيل التنبيهات">🔔</button>
+  <button class="rf" id="rf" onclick="pull(true)" aria-label="تحديث الآن — Live Update">↻</button>
+</header>
+
+<div class="stats">
+  <div class="st"><u>أحداث</u><b id="kEv">0</b></div>
+  <div class="st a"><u>عاجل</u><b id="kHi">0</b></div>
+  <div class="st g"><u>مصادر حية</u><b id="kSr">0</b></div>
+  <div class="st"><u>وارد</u><b id="kIt">0</b></div>
+</div>
+
+<div class="srcs" id="srcs"></div>
+
+<div id="map" role="application" aria-label="خريطة الأحداث"></div>
+
+<div class="cols">
+  <section class="col">
+    <div class="ch"><h2>الأحداث المجمّعة</h2>
+      <input id="flt" placeholder="تصفية بكلمة…" autocomplete="off">
+      <em id="evStamp">—</em></div>
+    <div id="feed"><div class="note"><b>يسحب الآن…</b><p>أول دفعة تصل خلال ثوانٍ</p></div></div>
+  </section>
+  <section class="col raw-col">
+    <div class="ch"><h2>الوارد الخام</h2><em id="rwStamp">—</em></div>
+    <div class="scr" id="raw"></div>
+  </section>
+</div>
+
+<div class="sheet" id="sheet" aria-hidden="true">
+  <div class="sh-t"><span class="tag" id="shTag">—</span><em id="shId">—</em>
+    <button class="x" onclick="closeSheet()" aria-label="إغلاق">×</button></div>
+  <div class="sh-b" id="shBody"></div>
+  <div class="sh-f">
+    <button class="ex p" onclick="makePDF()">تقرير PDF <em>A4</em></button>
+    <button class="ex" onclick="makePPTX()">عرض <em>A4·PPTX</em></button>
+    <button class="ex aib" onclick="openAI()">✦ ذكاء اصطناعي</button>
+  </div>
+</div>
+
+<div class="aiwrap" id="aiBox" aria-hidden="true">
+  <div class="aip">
+    <h3>تقرير مُحرَّر بالذكاء الاصطناعي</h3>
+    <p>يقرأ النموذج تغطية كل المصادر ثم يكتب: ملخصاً تنفيذياً، جدولاً يتكيف مع طبيعة
+       الخبر (ضحايا، قوة زلزال…)، وأقساماً مثل «ردود الأفعال الدولية» و«الاستجابات»
+       إن وردت في التغطية — والعناوين الفرعية تختلف من تقرير لآخر حسب الحدث.
+       المفتاح يبقى في هذه الصفحة ولا يُحفظ.</p>
+    <div class="aiprov">
+      <button aria-pressed="true"  onclick="setProv('claude',this)">Claude</button>
+      <button aria-pressed="false" onclick="setProv('openai',this)">ChatGPT</button>
+    </div>
+    <input id="aiKey" type="password" placeholder="sk-..." autocomplete="off" spellcheck="false">
+    <div class="aiact">
+      <button class="ex p" onclick="aiGo('pdf')">تقرير PDF</button>
+      <button class="ex"   onclick="aiGo('pptx')">عرض PPTX</button>
+      <button class="ex ghost" onclick="closeAI()">إلغاء</button>
+    </div>
+    <em id="aiSt"></em>
+  </div>
+</div>
+
+<div id="rep"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   المصادر
+   ══════════════════════════════════════════════════════════════ */
+const SRC = [
+ {id:'aljazeera',n:'الجزيرة',c:'JZR',t:'#C98A3C',lang:'ar',
+  u:'https://www.aljazeera.net/aljazeerarss/a7c186be-1baa-4bd4-9d80-a84db769f779/73d0e1b4-532f-45ef-b135-bfdff8b8cab9'},
+ {id:'skynews',n:'سكاي نيوز',c:'SKY',t:'#4E8FC4',lang:'ar',
+  u:'https://www.skynewsarabia.com/web/rss/home.xml'},
+ {id:'bbc',n:'بي بي سي',c:'BBC',t:'#D2544F',lang:'ar',
+  u:'https://feeds.bbci.co.uk/arabic/rss.xml'},
+ {id:'albayan',n:'البيان',c:'BYN',t:'#5FA37E',lang:'ar',
+  u:'https://news.google.com/rss/search?q=site:albayan.ae+when:12h&hl=ar&gl=AE&ceid=AE:ar'},
+ {id:'emaratalyoum',n:'الإمارات اليوم',c:'EMY',t:'#C4A94E',lang:'ar',
+  u:'https://news.google.com/rss/search?q=site:emaratalyoum.com+when:12h&hl=ar&gl=AE&ceid=AE:ar'},
+ {id:'reuters',n:'رويترز',c:'RTR',t:'#E8562A',lang:'en',
+  u:'https://news.google.com/rss/search?q=site:reuters.com+when:6h&hl=en&gl=AE&ceid=AE:en'},
+ {id:'guardian',n:'الغارديان',c:'GRD',t:'#6E8BC4',lang:'en',
+  u:'https://www.theguardian.com/world/rss'},
+ {id:'axios',n:'أكسيوس',c:'AXS',t:'#8A6FC4',lang:'en',
+  u:'https://api.axios.com/feed/'}
+];
+const SM = Object.fromEntries(SRC.map(s=>[s.id,s]));
+const SEV = {high:'#E8562A',medium:'#E2A03F',low:'#7A8B5A'};
+const SEVN= {high:'حرج',medium:'متابعة',low:'عادي'};
+
+/* ══════════════════════════════════════════════════════════════
+   مصدر البيانات: ملف يبنيه GitHub Actions كل ٣٠ دقيقة
+   لا وسطاء ولا CORS — الملف من نفس النطاق، فالقراءة مضمونة.
+   ══════════════════════════════════════════════════════════════ */
+const DATA_URL='data/latest.json';
+let builtAt=null;
+
+function tfetch(url, ms=15000){
+  const c=new AbortController(); const t=setTimeout(()=>c.abort(),ms);
+  return fetch(url,{cache:'no-store',signal:c.signal}).finally(()=>clearTimeout(t));
+}
+
+async function pull(manual){
+  if(busy) return; busy=true; left=nextInterval();
+  $('rf').classList.add('on');
+  if(manual) toast('تحديث · قراءة أحدث بيانات مجمّعة',2200);
+
+  try{
+    // البصمة تكسر تخزين المتصفح فقط — لا وسيط بيننا وبين الملف
+    const r=await tfetch(DATA_URL+'?_='+Date.now());
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json();
+
+    builtAt = d.builtAt || null;
+    (d.sources||[]).forEach(s=>{
+      state[s.id]={status:s.ok?'ok':'no', at:s.at||d.builtAt, n:s.n||0, why:s.why};
+    });
+
+    const known=new Set(events.map(e=>e.fp));
+    events=(d.events||[]).map(e=>({
+      ...e,
+      ago:'', 
+      stamp:new Date(e.at).toLocaleString('ar-AE'),
+      updates:(e.updates||[]).map(u=>({
+        t:new Date(u.at).toLocaleTimeString('ar-AE',{hour:'2-digit',minute:'2-digit'}),
+        d:new Date(u.at).toLocaleDateString('ar-AE',{day:'numeric',month:'long'}),
+        s:u.s, h:u.h})),
+      points:[], pointsEn:[]
+    }));
+    events.forEach(trackVersion);
+
+    items=[];                                   // الوارد الخام يُشتق من الأحداث
+    events.forEach(e=>(e.sources||[]).forEach(s=>
+      items.push({src:s.id,title:s.h,url:s.url,at:s.at,snip:''})));
+    items.sort((a,b)=>b.at-a.at);
+    events.filter(e=>!known.has(e.fp)).forEach(e=>e._new=true);
+  }catch(err){
+    console.error(err);
+    if(!events.length){
+      $('feed').innerHTML=`<div class="note"><b>تعذّر قراءة البيانات</b>
+        <p style="margin-top:8px">${esc(err.message)}</p>
+        <p style="margin-top:10px">إن كان هذا أول تشغيل، شغّل سير العمل في جيثب أولاً:<br>
+        <b style="color:var(--sand)">Actions ← جمع الأخبار ← Run workflow</b><br>
+        ثم انتظر دقيقتين وحدّث الصفحة.</p></div>`;
+    }
+  }
+
+  lastPull=Date.now();
+  busy=false; $('rf').classList.remove('on');
+  paint(); render(); drawMap(); notifyNew(); paintFresh();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   الرسم
+   ══════════════════════════════════════════════════════════════ */
+function paint(){
+  $('srcs').innerHTML = SRC.map(s=>{
+    const st=state[s.id]||{}, [n,u]=since(st.at);
+    return `<div class="s ${st.at?'':'off'} ${st.hit?'hit':''}" style="--c:${s.t}">
+      <div class="s-h"><i class="${st.status==='ok'?'ok':st.status==='no'?'no':''}"></i>
+        <strong>${s.n}</strong></div>
+      <div class="s-t">${n}<span> ${u}</span></div>
+      <div class="s-c">${st.status==='no'?'تعذّر':st.status==='…'?'يسحب…':
+        st.n?ar(st.n)+' عنصر':'—'}</div>
+      ${s._via&&st.status==='ok'?`<div class="s-c" style="opacity:.6">${s._via}</div>`:''}</div>`;
+  }).join('');
+
+  $('kEv').textContent = ar(events.length);
+  $('kHi').textContent = ar(events.filter(e=>e.severity==='high').length);
+  $('kSr').textContent = ar(SRC.filter(s=>state[s.id]?.status==='ok').length);
+  $('kIt').textContent = ar(items.length);
+}
+
+function render(){
+  if(!events.length) return;
+  const q=norm(FILTER);
+  const vis=q?events.filter(e=>norm(e.title+' '+e.summary+' '+e.place).includes(q)):events;
+  $('feed').innerHTML = (vis.map(e=>{
+    const lead=SM[e.sources[0].id], [n,u]=since(e.at);
+    return `<article class="ev" style="--c:${SEV[e.severity]}" onclick="open_(${e.id})"
+              tabindex="0" onkeydown="if(event.key==='Enter')open_(${e.id})">
+      <div class="ev-t"><span class="tag" style="--c:${lead.t}">${lead.c}</span>
+        ${e.severity==='high'?'<span class="tag" style="--c:#E8562A">عاجل</span>':''}
+        <span class="ago">قبل ${n} ${u}</span></div>
+      <h3>${esc(e.title)}</h3><p>${esc(e.lede)}</p>
+      <div class="ev-f"><span>${ar(e.sources.length)} مصدر</span>
+        ${e.linked?`<span class="lk">${ar(e.linked)} خبر مرتبط</span>`:''}
+        <span>${e.place}</span></div></article>`;
+  }).join('')) || `<div class="note"><b>لا شيء يطابق «${esc(FILTER)}»</b></div>`;
+
+  $('raw').innerHTML = items.slice(0,70).map(x=>{
+    const s=SM[x.src],[n,u]=since(x.at);
+    return `<a class="raw ${x.fresh?'new':''}" href="${x.url}" target="_blank" rel="noopener"
+      style="--c:${s.t}"><u>${s.c}</u><span>${esc(x.title)}</span><em>${n}${u}</em></a>`;
+  }).join('');
+
+  $('evStamp').textContent=new Date().toLocaleTimeString('ar-AE',{hour:'2-digit',minute:'2-digit'});
+  $('rwStamp').textContent=ar(items.length)+' بند';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   التفاصيل
+   ══════════════════════════════════════════════════════════════ */
+/* درجة الثقة: تعدد المصادر المستقلة + حداثة التغطية + اتساقها */
+function confidence(e){
+  let v=26;
+  v+=Math.min(46, (e.sources.length-1)*17);           // مصدران مستقلان أقوى من واحد
+  const hrs=(Date.now()-e.at)/3.6e6;
+  v+=hrs<3?16:hrs<12?10:hrs<48?5:0;                    // التغطية الحديثة أوثق
+  if(e.updates.length>=3) v+=8;                        // تتابع الورود يرفع الثقة
+  if(e.lat!=null) v+=6;                                // موقع محدد
+  return Math.max(12,Math.min(97,Math.round(v)));
+}
+/* درجة الخطورة: التصنيف + حجم الخسائر + اتساع التغطية */
+function riskScore(e){
+  const c=casualties(e.summary+' '+e.updates.map(u=>u.h).join(' '));
+  let v={high:68,medium:40,low:18}[e.severity];
+  if(c.dead>=100) v+=22; else if(c.dead>=10) v+=14; else if(c.dead>0) v+=8;
+  if(c.hurt>=100) v+=6;
+  if(e.sources.length>=4) v+=6;
+  return Math.max(5,Math.min(99,Math.round(v)));
+}
+const band=v=>v>=75?'مرتفعة':v>=50?'متوسطة':v>=28?'محدودة':'منخفضة';
+
+function open_(id){
+  cur=events.find(e=>e.id===id); if(!cur) return;
+  aiModel=null;
+  const lead=SM[cur.sources[0].id], [n,u]=since(cur.at);
+  const cf=confidence(cur), rk=riskScore(cur);
+  const led=LEDGER.get(cur.fp)||{ver:'1.0',log:[]};
+  $('shTag').textContent=lead.c; $('shTag').style.setProperty('--c',lead.t);
+  $('shId').textContent=`EVT-${String(id).padStart(4,'0')}`;
+
+  $('shBody').innerHTML=`
+    <h1>${esc(cur.title)}</h1>
+    <div class="mt"><span>${cur.place}</span><span>قبل ${n} ${u}</span>
+      <span>${CATS[cur.cat].ico} ${catLabel(cur)}</span>
+      <span>${SEVN[cur.severity]}</span>
+      <span>إصدار ${ar(led.ver)}</span>
+      <span>${ar(cur.sources.length)} مصدر</span></div>
+    <div class="gauges">
+      <div class="gg" style="--c:${cf>=70?'var(--moss)':cf>=45?'var(--amber)':'var(--verm)'}">
+        <u>درجة الثقة بالمعلومات</u><div class="gbar"><i style="width:${cf}%"></i></div>
+        <b>${ar(cf)}٪ · ${band(cf)}</b></div>
+      <div class="gg" style="--c:${rk>=70?'var(--verm)':rk>=45?'var(--amber)':'var(--moss)'}">
+        <u>مستوى خطورة الحدث</u><div class="gbar"><i style="width:${rk}%"></i></div>
+        <b>${ar(rk)}٪ · ${band(rk)}</b></div>
+    </div>
+    <div class="sec"><h4>النص كما ورد</h4><p class="lede">${esc(cur.summary)}</p></div>
+    <div class="sec"><h4>سجل التغييرات · إصدار ${ar(led.ver)}</h4>
+      ${led.log.length? led.log.map(l=>`<div class="srow" style="--c:var(--amber)">
+        <strong>${new Date(l.t).toLocaleTimeString('ar-AE',{hour:'2-digit',minute:'2-digit'})}</strong>
+        <span>${esc(l.what)}</span></div>`).join('')
+        : '<p class="lede" style="font-size:12px;color:var(--dim)">لم يطرأ تغيير منذ الرصد الأول.</p>'}</div>
+    <div class="sec"><h4>كيف غطّته المصادر</h4>
+      ${cur.sources.map(s=>{const [a,b]=since(s.at);
+        return `<a class="srow" href="${s.url}" target="_blank" rel="noopener"
+          style="--c:${SM[s.id].t}"><strong>${SM[s.id].n}</strong>
+          <span>${esc(s.h)}</span><em>${a}${b}</em></a>`;}).join('')}</div>
+    <div class="sec"><h4>سجل الورود</h4>
+      ${cur.updates.map(x=>`<div class="srow" style="--c:${SM[x.s].t}">
+        <strong>${SM[x.s].n}</strong><span>${esc(x.h)}</span><em>${x.t}</em></div>`).join('')}</div>`;
+
+  $('sheet').classList.add('on'); $('sheet').setAttribute('aria-hidden','false');
+  document.body.style.overflow='hidden';
+}
+function closeSheet(){
+  $('sheet').classList.remove('on'); $('sheet').setAttribute('aria-hidden','true');
+  document.body.style.overflow='';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   التقرير — المتصفح يطبعه فتخرج العربية سليمة الاتصال
+   ══════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════
+   نموذج التقرير — مصدر واحد يغذّي PDF وPPTX معاً
+   ══════════════════════════════════════════════════════════════ */
+let aiModel=null, AIPROV='claude';
+const cln=t=>String(t??'').replace(/<(?!\/?b>)[^>]*>/g,'').trim();   // نسمح بـ<b> فقط
+const toLatin=t=>String(t).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+
+/* استخراج الضحايا بأنماط رقمية — يعمل بلا ذكاء اصطناعي */
+function casualties(t){
+  t=toLatin(t);
+  const grab=re=>{let m,mx=0;const r=new RegExp(re,'gi');
+    while(m=r.exec(t)){const n=parseInt(m[1].replace(/[,،]/g,''));if(n>mx&&n<1e7)mx=n;}
+    return mx;};
+  return {
+    dead:grab('(\\d[\\d,،]*)\\s*(?:قتيل|قتلى|شهيد|شهداء|ضحيه|ضحايا|وفاه|وفيات|dead|killed|deaths?|fatalit)'),
+    hurt:grab('(\\d[\\d,،]*)\\s*(?:مصاب|جريح|جرحى|اصاب|إصاب|injured|wounded|hurt)'),
+    miss:grab('(\\d[\\d,،]*)\\s*(?:مفقود|missing)')
+  };
+}
+
+/* النموذج بلا ذكاء اصطناعي: البنود تُدرج فقط حين تتوفر بياناتها */
+function offlineModel(){
+  const all=cur.summary+' '+cur.updates.map(u=>u.h).join(' ');
+  const cas=cur.cas||casualties(all);
+  const C=CATS[cur.cat], led=LEDGER.get(cur.fp)||{ver:'1.0',log:[]};
+  const d=[
+    ['تصنيف الحدث', C.ico+' '+catLabel(cur)],
+    ['المكان',cur.place]
+  ];
+  if(cur.lat!=null) d.push(['الإحداثيات',cur.lat.toFixed(3)+'°N · '+cur.lng.toFixed(3)+'°E']);
+  d.push(['التاريخ والوقت',ar(new Date(cur.at).toLocaleString('ar-AE'))]);
+  d.push(['المنطقة الزمنية',Intl.DateTimeFormat().resolvedOptions().timeZone]);
+  d.push(['مستوى الأهمية',SEVN[cur.severity]]);
+  if(cas.dead) d.push(['القتلى',ar(cas.dead)]);
+  if(cas.hurt) d.push(['المصابون',ar(cas.hurt)+'+']);
+  if(cas.miss) d.push(['المفقودون',ar(cas.miss)]);
+  d.push(['آخر مستجد',cur.updates[0].h.slice(0,64)]);
+  d.push(['عدد المصادر',ar(cur.sources.length)]);
+  d.push(['درجة الثقة',ar(confidence(cur))+'٪ · '+band(confidence(cur))]);
+  d.push(['مستوى الخطورة',ar(riskScore(cur))+'٪ · '+band(riskScore(cur))]);
+  d.push(['إصدار التقرير',ar(led.ver)]);
+  d.push(['آخر سحب للبيانات', lastPull
+    ? ar(new Date(lastPull).toLocaleString('ar-AE'))+' · '+Intl.DateTimeFormat().resolvedOptions().timeZone
+    : '—']);
+  d.push(['حالة البيانات', {live:'🟢 محدّث الآن',warm:'🟡 آخر تحديث منذ فترة',
+                            cold:'🔴 يحتاج تحديثاً'}[freshness().k]]);
+
+  // سجل التغييرات يصير قسماً في التقرير حين يوجد ما يُذكر
+  const secs=[];
+  if(led.log.length>1) secs.push({h:'سجل تطور المعلومات',
+    ps:led.log.slice(0,6).map(l=>
+      `<b>${ar(new Date(l.t).toLocaleTimeString('ar-AE',{hour:'2-digit',minute:'2-digit'}))}</b> — ${l.what}`)});
+
+  return {
+    kind: cur.severity==='high' && (cur.cat==='disaster'||cur.cat==='crime'||cur.cat==='security')
+          ? 'تقرير حادث' : C.kind,
+    kindEn: C.en,
+    cat: cur.cat,
+    ver: led.ver,
+    exec: cur.sources.slice(0,5).map(s=>`<b>${SM[s.id].n}:</b> ${esc(s.h)}`),
+    summary: cur.summary,
+    details: d,
+    sections: secs,
+    timeline: cur.updates,
+    ai:false
+  };
+}
+
+/* ═══ طبقة الذكاء الاصطناعي — اختيارية، Claude أو ChatGPT ═══ */
+function openAI(){ if(!cur) return; $('aiBox').classList.add('on'); $('aiSt').textContent=''; }
+function closeAI(){ $('aiBox').classList.remove('on'); }
+function setProv(p,btn){
+  AIPROV=p;
+  document.querySelectorAll('.aiprov button').forEach(b=>b.setAttribute('aria-pressed','false'));
+  btn.setAttribute('aria-pressed','true');
+  $('aiKey').placeholder = p==='claude' ? 'sk-ant-...' : 'sk-...';
+}
+function afetch(url,opts,ms=60000){
+  const c=new AbortController(); const t=setTimeout(()=>c.abort(),ms);
+  return fetch(url,{...opts,signal:c.signal}).finally(()=>clearTimeout(t));
+}
+
+async function aiCompose(key){
+  const srcTxt=cur.sources.map(s=>`(${SM[s.id].n}) ${s.h}`).join('\n');
+  const upsTxt=cur.updates.map(u=>`${u.t} ${u.d}: ${u.h}`).join('\n');
+  const prompt=`أنت محرّر في غرفة أخبار عربية. اكتب مادة تقرير عن الحدث التالي اعتماداً فقط على ما يلي، وبصياغتك أنت دون نسخ حرفي.
+
+العناوين حسب المصدر:
+${srcTxt}
+
+نص التغطية:
+${cur.summary}
+
+سجل الورود:
+${upsTxt}
+
+أعد JSON فقط (دون أسوار كود ودون أي شرح) بهذه البنية، وكيِّف البنود والعناوين الفرعية مع طبيعة الخبر — لا تُدرج قسماً أو بنداً لا يدعمه النص:
+{"kind":"حادث" أو "حدث" (حادث للكوارث والهجمات وما فيه خسائر بشرية),
+ "exec":[حتى ٥ نقاط ملخص تنفيذي، ضع <b></b> حول الأرقام والأسماء المهمة],
+ "summary":"فقرة من ٣ إلى ٥ جمل",
+ "details":[["البند","القيمة"],...] (المكان، التاريخ والوقت، الضحايا والمصابون إن وُجدوا، قوة الزلزال أو حجم الخسائر… حسب الحدث),
+ "sections":[{"h":"عنوان فرعي مناسب مثل: ردود الأفعال الدولية / التصريحات الرسمية / الاستجابات والإغاثة / التداعيات الاقتصادية","ps":["فقرة قصيرة",...]}],
+ "timeline":[{"t":"الوقت","d":"التاريخ","h":"ما حدث بصياغة محرّرة"}]}`;
+
+  let raw;
+  if(AIPROV==='claude'){
+    const r=await afetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'content-type':'application/json','x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:3500,
+        messages:[{role:'user',content:prompt}]})});
+    if(!r.ok){
+      const b=await r.json().catch(()=>({}));
+      const m=b.error?.message||('HTTP '+r.status);
+      if(r.status===401) throw new Error('المفتاح مرفوض — تأكد من نسخه كاملاً');
+      if(/credit|balance/i.test(m)) throw new Error('لا يوجد رصيد في حساب Anthropic');
+      if(r.status===429) throw new Error('تجاوزت الحد — انتظر دقيقة');
+      throw new Error(m);
+    }
+    raw=(await r.json()).content.map(c=>c.text||'').join('');
+  }else{
+    const r=await afetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST',
+      headers:{'content-type':'application/json','authorization':'Bearer '+key},
+      body:JSON.stringify({model:'gpt-4o-mini',max_tokens:3500,
+        messages:[{role:'user',content:prompt}]})});
+    if(!r.ok){
+      const b=await r.json().catch(()=>({}));
+      const m=b.error?.message||('HTTP '+r.status);
+      if(r.status===401) throw new Error('المفتاح مرفوض — تأكد من نسخه كاملاً');
+      if(r.status===429) throw new Error('تجاوزت الحد أو نفد الرصيد');
+      throw new Error(m);
+    }
+    raw=(await r.json()).choices?.[0]?.message?.content||'';
+  }
+
+  const mt=raw.match(/\{[\s\S]*\}/);
+  if(!mt) throw new Error('ردّ غير متوقع من النموذج');
+  const j=JSON.parse(mt[0]);
+  const base=offlineModel();
+  return {
+    kind: /حادث/.test(j.kind||'') ? 'تقرير حادث' : 'تقرير حدث',
+    exec: (j.exec||[]).slice(0,5).map(cln).filter(Boolean).length
+          ? (j.exec||[]).slice(0,5).map(cln).filter(Boolean) : base.exec,
+    summary: cln(j.summary)||base.summary,
+    details: Array.isArray(j.details)&&j.details.length
+          ? j.details.filter(x=>Array.isArray(x)&&x.length===2)
+              .map(([k,v])=>[cln(k),cln(v)]).slice(0,12)
+          : base.details,
+    sections: (j.sections||[]).map(s=>({h:cln(s.h),
+              ps:(s.ps||[]).map(cln).filter(Boolean)}))
+              .filter(s=>s.h&&s.ps.length).slice(0,4),
+    timeline: Array.isArray(j.timeline)&&j.timeline.length
+          ? j.timeline.map(u=>({t:cln(u.t),d:cln(u.d),h:cln(u.h)}))
+              .filter(u=>u.h).slice(0,8)
+          : base.timeline,
+    ai:true
+  };
+}
+
+async function aiGo(fmt){
+  const key=$('aiKey').value.trim();
+  const st=m=>$('aiSt').textContent=m;
+  if(!key||!key.startsWith('sk')) return st('الصق المفتاح أولاً — يبدأ بـ sk');
+  st('يقرأ التغطية ويكتب التقرير… ١٥–٤٠ ثانية');
+  try{
+    aiModel=await aiCompose(key);
+    closeAI();
+    fmt==='pdf' ? makePDF(aiModel) : makePPTX(aiModel);
+  }catch(e){ st('تعذّر: '+e.message); }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   التقرير — المتصفح يطبعه فتخرج العربية سليمة الاتصال
+   ══════════════════════════════════════════════════════════════ */
+function makePDF(model){
+  if(!cur) return;
+  model=model||offlineModel();
+  const now=new Date();
+  const dl=ar(now.toLocaleDateString('ar-AE'))+' · '+
+           ar(now.toLocaleTimeString('ar-AE',{hour:'2-digit',minute:'2-digit'}));
+  const names=cur.sources.map(s=>SM[s.id].n).join(' · ');
+  const figs=(cur.figs||[]).slice(0,3);
+  const kindEn=model.kindEn||(model.kind==='تقرير حادث'?'INCIDENT REPORT':'EVENT REPORT');
+  const srcName=x=>x.s&&SM[x.s]?SM[x.s].n:'تحرير مرصد';
+  let n=0; const num=()=>ar(String(++n).padStart(2,'0'));
+
+  $('rep').innerHTML=`
+  <section class="pg">
+    <div class="run"><span>${model.kind} · مرصد</span><span>أُنزل في ${dl}</span></div>
+    <div style="padding-top:9mm">
+      <div class="kick">${model.kind}</div><div class="kickS">${kindEn}</div>
+      <div class="rul"></div>
+      <div class="tit">${esc(cur.title)}</div>
+      <div class="sub">${CATS[cur.cat].ico} ${catLabel(cur)} · ${cur.place}<br>أُنشئ في ${dl} · إصدار ${ar(model.ver||"1.0")}</div>
+    </div>
+    ${figs[0]?`<figure class="hero"><img src="${figs[0].src}">
+      <figcaption>${esc(figs[0].cap)} — من تغطية الحدث</figcaption></figure>`
+             :'<div style="height:12mm"></div>'}
+    <div class="eye">${kindEn==='INCIDENT REPORT'?'EXECUTIVE SUMMARY':'EXECUTIVE SUMMARY'}</div>
+    <div class="h2p">الملخص التنفيذي</div>
+    ${model.exec.slice(0,5).map((p,i)=>`<div class="pt">
+      <div class="ptN">${ar(String(i+1).padStart(2,'0'))}</div>
+      <div class="ptT">${p}</div></div>`).join('')}
+    <div class="ft"><span>أُنتج آلياً بواسطة مرصد${model.ai?' · صياغة ذكاء اصطناعي':''}</span>
+      <span>${names}</span></div>
+  </section>
+
+  <section class="pg">
+    <div class="run"><span>${esc(cur.title)}</span><span>PAGE 01 · ${dl}</span></div>
+
+    <div class="secP"><div class="eye">${num()} — نبذة عن الحدث</div>
+      <p class="ledeP">${ar(model.summary)}</p></div>
+
+    <div class="secP"><div class="eye">${num()} — جدول تفاصيل الحدث</div>
+      <table><tbody>
+        ${model.details.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('')}
+      </tbody></table></div>
+
+    ${figs.length>1?`<div class="secP"><div class="eye">${num()} — صور من موقع الحدث</div>
+      <div class="figrow">${figs.map(f=>`<figure><img src="${f.src}">
+        <figcaption>‹ ${esc(f.cap)}</figcaption></figure>`).join('')}</div></div>`:''}
+
+    ${model.sections.map(sc=>`<div class="secP"><div class="eye">${num()} — ${sc.h}</div>
+      ${sc.ps.map(p=>`<p class="para">${p}</p>`).join('')}</div>`).join('')}
+
+    <div class="secP"><div class="eye">${num()} — التسلسل الزمني</div>
+      <div class="tl">${model.timeline.map((x,i)=>`<div class="tlR ${i===0?'f':''}">
+        <div class="tlT">${ar(x.t)}<br>${ar(x.d||'')}</div>
+        <div class="tlH">${x.h}</div>
+        <div class="tlS">${srcName(x)}</div></div>`).join('')}</div></div>
+
+    <div class="secP"><div class="eye">${num()} — المصادر</div>
+      ${cur.sources.map(s=>`<div class="sr"><b>${SM[s.id].n}</b>
+        <span>${esc(s.h)}</span></div>`).join('')}</div>
+
+    <div class="ft"><span>صفحة ١ من ١ · أُنزل في ${dl}</span><span>أُنتج آلياً بواسطة مرصد</span></div>
+  </section>`;
+
+  // لا نطبع قبل تحميل الصور — والصورة المعطوبة تُخفى مع إطارها بدل مربع فارغ
+  toast('يجهّز الصور ثم يفتح الطباعة… اختر «حفظ كملف PDF»',7000);
+  const imgs=[...document.querySelectorAll('#rep img')];
+  const wait=imgs.map(im=>new Promise(done=>{
+    const kill=()=>{ im.closest('figure')?.classList.add('dead'); done(); };
+    if(im.complete) return im.naturalWidth?done():kill();
+    im.addEventListener('load',()=>im.naturalWidth?done():kill(),{once:true});
+    im.addEventListener('error',kill,{once:true});
+  }));
+  Promise.race([Promise.all(wait), new Promise(r=>setTimeout(r,6500))])
+    .then(()=>setTimeout(()=>window.print(),150));
+}
+
+/* ═══ PowerPoint ═══ */
+let pptOK=false;
+const loadPptx=()=>pptOK?Promise.resolve():new Promise((ok,no)=>{
+  const s=document.createElement('script');
+  s.src='https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';
+  s.onload=()=>{pptOK=true;ok()}; s.onerror=()=>no(new Error('تعذّر تحميل المكتبة'));
+  document.head.appendChild(s);
+});
+
+/* الشرائح لا تقبل روابط صور خارجية — نجلبها ونحوّلها بيانات مدمجة.
+   نجرّب مباشرة ثم عبر الوسطاء، وما يفشل يُتجاوز بصمت. */
+async function imgB64(u){
+  const tries=[u];   // مباشرة فقط — لا وسطاء في نسخة جيثب
+  for(const t of tries){
+    try{
+      const r=await tfetch(t,8000); if(!r.ok) continue;
+      const b=await r.blob();
+      if(b.size<1500) continue;
+      const d=await new Promise(res=>{
+        const f=new FileReader();
+        f.onload=()=>res(f.result); f.onerror=()=>res(null);
+        f.readAsDataURL(b);
+      });
+      if(d && d.startsWith('data:image')) return d;
+    }catch{}
+  }
+  return null;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   PowerPoint — A4 عمودي (٨٫٢٧ × ١١٫٦٩ بوصة)
+   كل شريحة صفحة A4 قائمة، تُطبع مباشرة بلا إعادة ضبط
+   ══════════════════════════════════════════════════════════════ */
+const PW=8.27, PH=11.69, MG=0.62, CW=PW-2*MG;   // عرض الصفحة والهوامش
+
+async function makePPTX(model){
+  if(!cur) return;
+  model=model||offlineModel();
+  toast('يجهّز الصور ويبني الصفحات…',9000);
+  try{ await loadPptx(); }catch(e){ return toast(e.message); }
+
+  const figs=(cur.figs||[]).slice(0,3);
+  const imgs=(await Promise.all(figs.map(f=>imgB64(f.src))))
+              .map((d,i)=>d?{data:d,cap:figs[i].cap}:null).filter(Boolean);
+
+  const now=new Date();
+  const dl=ar(now.toLocaleDateString('ar-AE'))+' · '+
+           ar(now.toLocaleTimeString('ar-AE',{hour:'2-digit',minute:'2-digit'}));
+  const kindEn=model.kindEn||(model.kind==='تقرير حادث'?'INCIDENT REPORT':'EVENT REPORT');
+  const srcName=x=>x.s&&SM[x.s]?SM[x.s].n:'تحرير مرصد';
+
+  const p=new PptxGenJS();
+  p.defineLayout({name:'A4P', width:PW, height:PH});
+  p.layout='A4P'; p.rtlMode=true;
+
+  const PAPER='F8F5F0', INK='141210', V='E8562A', M='6E6154', RULE='D8D0C4', BODY='332C26';
+  const B={fontFace:'Cairo', rtlMode:true, align:'right'};
+
+  /* عناصر مشتركة تطابق قالب الـPDF */
+  const page=()=>{
+    const s=p.addSlide(); s.background={color:PAPER};
+    s.addShape(p.ShapeType.rect,{x:0,y:0,w:PW,h:0.16,fill:{color:V}});   // الشريط القرمزي
+    return s;
+  };
+  const runner=(s,r,l)=>{
+    s.addText(r,{x:MG,y:0.42,w:CW*0.55,h:0.2,fontSize:7.5,color:M,align:'right',
+      fontFace:'Cairo',rtlMode:true});
+    s.addText(l,{x:MG+CW*0.55,y:0.42,w:CW*0.45,h:0.2,fontSize:7.5,color:M,align:'left'});
+    s.addShape(p.ShapeType.rect,{x:MG,y:0.66,w:CW,h:0.006,fill:{color:RULE}});
+  };
+  const eyebrow=(s,y,t)=>s.addText(t,{x:MG,y,w:CW,h:0.18,fontSize:7.5,color:V,
+    align:'right',charSpacing:2,fontFace:'Cairo',rtlMode:true});
+  const footer=(s,r,l)=>{
+    s.addShape(p.ShapeType.rect,{x:MG,y:PH-0.62,w:CW,h:0.006,fill:{color:RULE}});
+    s.addText(r,{x:MG,y:PH-0.55,w:CW*0.55,h:0.2,fontSize:6.5,color:M,align:'right',
+      fontFace:'Cairo',rtlMode:true});
+    s.addText(l,{x:MG+CW*0.55,y:PH-0.55,w:CW*0.45,h:0.2,fontSize:6.5,color:M,align:'left'});
+  };
+
+  /* ═══ صفحة الغلاف ═══ */
+  const c=page();
+  runner(c, model.kind+' · مرصد', 'أُنزل في '+dl);
+
+  c.addText(model.kind,{...B,x:MG,y:1.15,w:CW,h:0.95,fontSize:42,bold:true,
+    color:INK,align:'center'});
+  c.addText(kindEn,{x:MG,y:2.08,w:CW,h:0.3,fontSize:10,color:V,align:'center',charSpacing:8});
+  c.addShape(p.ShapeType.rect,{x:PW/2-0.5,y:2.6,w:1,h:0.022,fill:{color:INK}});
+
+  c.addText(cur.title,{...B,x:MG+0.3,y:2.85,w:CW-0.6,h:0.95,fontSize:20,bold:true,
+    color:INK,align:'center',valign:'top'});
+  c.addText(`${CATS[cur.cat].ico} ${catLabel(cur)} · ${cur.place}`,
+    {...B,x:MG,y:3.78,w:CW,h:0.24,fontSize:10,color:M,align:'center'});
+  c.addText(`${SEVN[cur.severity]} · إصدار ${ar(model.ver||'1.0')} · ${ar(cur.sources.length)} مصادر`,
+    {...B,x:MG,y:4.0,w:CW,h:0.24,fontSize:9,color:M,align:'center'});
+
+  let cy=4.25;
+  if(imgs[0]){
+    c.addImage({data:imgs[0].data,x:MG,y:cy,w:CW,h:2.5,sizing:{type:'cover',w:CW,h:2.5}});
+    c.addShape(p.ShapeType.rect,{x:MG,y:cy+2.1,w:CW,h:0.4,fill:{color:'000000',transparency:35}});
+    c.addText('‹ '+imgs[0].cap+' — من تغطية الحدث',
+      {...B,x:MG+0.12,y:cy+2.14,w:CW-0.24,h:0.3,fontSize:8,color:'FFFFFF'});
+    cy+=2.75;
+  }
+
+  eyebrow(c,cy,'EXECUTIVE SUMMARY');
+  c.addText('الملخص التنفيذي',{...B,x:MG,y:cy+0.2,w:CW,h:0.42,fontSize:17,bold:true,color:INK});
+  c.addShape(p.ShapeType.rect,{x:MG+CW-1.85,y:cy+0.65,w:1.85,h:0.026,fill:{color:INK}});
+  cy+=0.85;
+
+  model.exec.slice(0,5).forEach((raw,i)=>{
+    const y=cy+i*0.72;
+    c.addShape(p.ShapeType.rect,{x:MG+CW-0.44,y,w:0.44,h:0.44,fill:{color:INK}});
+    c.addText(ar(String(i+1).padStart(2,'0')),
+      {x:MG+CW-0.44,y,w:0.44,h:0.44,fontSize:9,color:PAPER,align:'center',valign:'middle'});
+    c.addText(cln(raw).replace(/<\/?b>/g,''),
+      {...B,x:MG,y,w:CW-0.62,h:0.62,fontSize:9.5,color:BODY,valign:'top',lineSpacing:15});
+  });
+
+  footer(c,'أُنتج آلياً بواسطة مرصد'+(model.ai?' · صياغة ذكاء اصطناعي':''),
+           cur.sources.map(s=>SM[s.id].n).join(' · '));
+
+  /* ═══ صفحة التفاصيل ═══ */
+  let n=0; const num=()=>ar(String(++n).padStart(2,'0'));
+  const d1=page();
+  runner(d1, cur.title.slice(0,60), 'PAGE 01 · '+dl);
+  let y=0.95;
+
+  eyebrow(d1,y,num()+' — نبذة عن الحدث'); y+=0.26;
+  d1.addText(ar(cln(model.summary)),{...B,x:MG,y,w:CW,h:1.5,fontSize:10.5,color:INK,
+    lineSpacing:20,valign:'top'});
+  y+=1.65;
+
+  eyebrow(d1,y,num()+' — جدول تفاصيل الحدث'); y+=0.28;
+  const rows=model.details.slice(0,11).map(([k,v])=>[
+    {text:cln(k),options:{bold:true,color:INK,fill:{color:'FFFFFF'}}},
+    {text:cln(v),options:{color:BODY}}
+  ]);
+  d1.addTable(rows,{x:MG,y,w:CW,colW:[CW*0.34,CW*0.66],fontFace:'Cairo',fontSize:9,
+    rtlMode:true,align:'right',valign:'middle',rowH:0.26,
+    border:{type:'solid',pt:0.5,color:RULE}});
+  y+=rows.length*0.28+0.3;
+
+  if(imgs.length>1 && y<8.4){
+    eyebrow(d1,y,num()+' — صور من موقع الحدث'); y+=0.28;
+    const w=(CW-0.2)/imgs.length;
+    imgs.forEach((im,i)=>{
+      const x=MG+i*(w+0.1);
+      d1.addImage({data:im.data,x,y,w,h:1.4,sizing:{type:'cover',w,h:1.4}});
+      d1.addText('‹ '+im.cap,{...B,x,y:y+1.44,w,h:0.22,fontSize:7,color:M,align:'center'});
+    });
+    y+=1.85;
+  }
+  footer(d1,'صفحة ١ · أُنزل في '+dl,'أُنتج آلياً بواسطة مرصد');
+
+  /* ═══ الأقسام المتكيفة — عنوان كل قسم يأتي من طبيعة الخبر ═══ */
+  let pageNo=1;
+  for(const sc of (model.sections||[])){
+    const s=page(); pageNo++;
+    runner(s, cur.title.slice(0,60), 'PAGE '+String(pageNo).padStart(2,'0')+' · '+dl);
+    let sy=0.95;
+    eyebrow(s,sy,num()+' — '+cln(sc.h)); sy+=0.3;
+    s.addText(cln(sc.h),{...B,x:MG,y:sy,w:CW,h:0.42,fontSize:16,bold:true,color:INK});
+    s.addShape(p.ShapeType.rect,{x:MG+CW-1.7,y:sy+0.46,w:1.7,h:0.024,fill:{color:INK}});
+    sy+=0.75;
+    sc.ps.slice(0,8).forEach(para=>{
+      const txt=cln(para).replace(/<\/?b>/g,'');
+      const h=Math.min(1.5, 0.24+txt.length/95*0.19);
+      s.addShape(p.ShapeType.ellipse,{x:MG+CW-0.12,y:sy+0.09,w:0.08,h:0.08,fill:{color:V}});
+      s.addText(txt,{...B,x:MG,y:sy,w:CW-0.24,h,fontSize:9.5,color:BODY,
+        lineSpacing:17,valign:'top'});
+      sy+=h+0.12;
+    });
+    footer(s,'صفحة '+ar(pageNo)+' · أُنزل في '+dl,'أُنتج آلياً بواسطة مرصد');
+  }
+
+  /* ═══ الخط الزمني — عمودي احترافي بخط واصل ونقاط ═══ */
+  const t1=page(); pageNo++;
+  runner(t1, cur.title.slice(0,60), 'PAGE '+String(pageNo).padStart(2,'0')+' · '+dl);
+  let ty=0.95;
+  eyebrow(t1,ty,num()+' — التسلسل الزمني'); ty+=0.3;
+  t1.addText('الخط الزمني للحدث',{...B,x:MG,y:ty,w:CW,h:0.42,fontSize:16,bold:true,color:INK});
+  t1.addShape(p.ShapeType.rect,{x:MG+CW-1.6,y:ty+0.46,w:1.6,h:0.024,fill:{color:INK}});
+  ty+=0.8;
+
+  const ups=(model.timeline||[]).slice(0,9);
+  const spine=MG+CW-1.42;                       // محور الخط الزمني
+  if(ups.length>1)
+    t1.addShape(p.ShapeType.rect,{x:spine,y:ty+0.1,w:0.012,
+      h:(ups.length-1)*0.78+0.1,fill:{color:RULE}});
+  ups.forEach((u,i)=>{
+    const yy=ty+i*0.78;
+    t1.addText(ar(u.t||''),{x:MG+CW-1.28,y:yy,w:1.28,h:0.2,fontSize:8,
+      color:i===0?V:M,align:'right',bold:i===0,fontFace:'Cairo',rtlMode:true});
+    t1.addText(ar(u.d||''),{x:MG+CW-1.28,y:yy+0.19,w:1.28,h:0.18,fontSize:7,
+      color:M,align:'right',fontFace:'Cairo',rtlMode:true});
+    t1.addShape(p.ShapeType.ellipse,{x:spine-0.055,y:yy+0.07,w:0.13,h:0.13,
+      fill:{color:i===0?V:INK},line:{color:PAPER,width:2}});
+    t1.addText(cln(u.h),{...B,x:MG,y:yy,w:CW-1.62,h:0.5,fontSize:9.5,bold:true,
+      color:INK,valign:'top',lineSpacing:15});
+    t1.addText(srcName(u),{...B,x:MG,y:yy+0.45,w:CW-1.62,h:0.18,fontSize:7,color:M});
+  });
+  footer(t1,'صفحة '+ar(pageNo)+' · أُنزل في '+dl,'أُنتج آلياً بواسطة مرصد');
+
+  /* ═══ المصادر ═══ */
+  const s5=page(); pageNo++;
+  runner(s5, cur.title.slice(0,60), 'PAGE '+String(pageNo).padStart(2,'0')+' · '+dl);
+  eyebrow(s5,0.95,num()+' — المصادر');
+  s5.addText('المصادر',{...B,x:MG,y:1.25,w:CW,h:0.42,fontSize:16,bold:true,color:INK});
+  s5.addShape(p.ShapeType.rect,{x:MG+CW-0.85,y:1.71,w:0.85,h:0.024,fill:{color:INK}});
+  s5.addTable([
+    [{text:'المصدر',options:{bold:true,color:PAPER,fill:{color:INK}}},
+     {text:'العنوان كما نُشر',options:{bold:true,color:PAPER,fill:{color:INK}}}],
+    ...cur.sources.map(s=>[SM[s.id].n, s.h])
+  ],{x:MG,y:2.05,w:CW,colW:[CW*0.26,CW*0.74],fontFace:'Cairo',fontSize:9,color:INK,
+     rtlMode:true,align:'right',valign:'middle',rowH:0.3,
+     border:{type:'solid',pt:0.5,color:RULE}});
+  footer(s5,'صفحة '+ar(pageNo)+' · أُنزل في '+dl,'أُنتج آلياً بواسطة مرصد');
+
+  await p.writeFile({fileName:`marsad-${model.kind.replace(/\s/g,'-')}-${String(cur.id).padStart(4,'0')}.pptx`});
+  toast(imgs.length? 'تم · A4 عمودي مع '+ar(imgs.length)+' صور مضمّنة'
+                   : 'تم · A4 عمودي · لم يوفر المصدر صوراً');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   تتبّع الإصدارات — كل تغيّر جوهري يرفع رقم الإصدار ويُسجَّل
+   ١٫٠ الرصد الأول · ١٫١ مصدر جديد · ١٫٢ تحديث الضحايا … وهكذا
+   ══════════════════════════════════════════════════════════════ */
+const LEDGER = new Map();          // fp → {ver, born, log:[{t,what}], sig}
+
+function trackVersion(e){
+  const cas=casualties(e.summary+' '+e.updates.map(u=>u.h).join(' '));
+  const sig={srcs:e.sources.length, ups:e.updates.length,
+             dead:cas.dead, hurt:cas.hurt, sev:e.severity, head:e.updates[0]?.h||''};
+  const prev=LEDGER.get(e.fp);
+
+  if(!prev){
+    LEDGER.set(e.fp,{ver:'1.0', born:Date.now(), sig,
+      log:[{t:Date.now(), what:'الرصد الأول · '+ar(sig.srcs)+' مصادر'}]});
+    return LEDGER.get(e.fp);
+  }
+
+  const ch=[];
+  if(sig.srcs>prev.sig.srcs) ch.push('مصدر جديد يغطي الحدث ('+ar(sig.srcs)+' مصادر)');
+  if(sig.dead>prev.sig.dead)  ch.push('تحديث القتلى: '+ar(prev.sig.dead||0)+' ← '+ar(sig.dead));
+  if(sig.hurt>prev.sig.hurt)  ch.push('تحديث المصابين: '+ar(prev.sig.hurt||0)+' ← '+ar(sig.hurt));
+  if(sig.sev!==prev.sig.sev)  ch.push('تغيّر التصنيف: '+SEVN[prev.sig.sev]+' ← '+SEVN[sig.sev]);
+  else if(sig.head!==prev.sig.head && sig.ups>prev.sig.ups)
+    ch.push('مستجد: '+sig.head.slice(0,58));
+
+  if(ch.length){
+    const [maj,min]=prev.ver.split('.').map(Number);
+    prev.ver = maj+'.'+(min+1);
+    prev.sig = sig;
+    ch.forEach(w=>prev.log.unshift({t:Date.now(), what:w}));
+    if(prev.log.length>14) prev.log.length=14;
+  }
+  return prev;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   معدّل التحديث المتكيّف — العاجل يُسحب أسرع
+   ══════════════════════════════════════════════════════════════ */
+function nextInterval(){
+  if(!events.length) return 60;
+  const hi=events.filter(e=>e.severity==='high');
+  const fresh=hi.filter(e=>(Date.now()-e.at)<45*60000).length;   // عاجل خلال ٤٥ دقيقة
+  if(fresh>=2) return 120;
+  if(fresh===1) return 180;
+  if(hi.length)  return 240;
+  return 300;   // التجميع كل ٣٠ دقيقة، فالقراءة كل ٥ دقائق تكفي                  // هدوء — نخفّف الضغط على المصادر
+}
+/* ══════════════════════════════════════════════════════════════
+   حداثة البيانات — تُقاس بأمرين: عمر آخر سحب، وعمر أحدث خبر وصل
+   ══════════════════════════════════════════════════════════════ */
+let lastPull=null;
+function freshness(){
+  if(!builtAt) return {k:'cold', t:'لم تُقرأ بعد', age:Infinity, newest:Infinity};
+  // ما يهم هو عمر آخر تجميع على جيثب، لا عمر قراءتنا للملف
+  const buildAge=(Date.now()-builtAt)/60000;                 // بالدقائق
+  const newest=items.length?Math.min(...items.map(x=>(Date.now()-x.at)/60000)):Infinity;
+  const stamp=new Date(builtAt).toLocaleTimeString('ar-AE',{hour:'2-digit',minute:'2-digit'});
+  if(buildAge<45) return {k:'live', t:'مجمّع '+stamp, age:buildAge*60, newest};
+  if(buildAge<180) return {k:'warm', t:'آخر تجميع '+stamp, age:buildAge*60, newest};
+  return {k:'cold', t:'التجميع متوقف', age:buildAge*60, newest};
+}
+function paintFresh(){
+  const f=freshness(), el=$('fresh'); if(!el) return;
+  el.className='fresh '+f.k;
+  $('freshT').textContent=f.t;
+  el.title=`آخر تجميع على جيثب: ${builtAt?new Date(builtAt).toLocaleString('ar-AE'):'—'}\n`+
+    `المنطقة الزمنية: ${Intl.DateTimeFormat().resolvedOptions().timeZone}\n`+
+    `أحدث خبر: ${isFinite(f.newest)?'قبل '+Math.round(f.newest)+' دقيقة':'—'}`;
+}
+
+let map=null, mkG=null, FILTER='';
+function initMap(){
+  if(!window.L || map) return;
+  map=L.map('map',{worldCopyJump:true,minZoom:1}).setView([25,18],2);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    {attribution:'CARTO · OSM',subdomains:'abcd',maxZoom:18}).addTo(map);
+  mkG=L.layerGroup().addTo(map);
+}
+function drawMap(){
+  if(!map||!mkG) return;
+  mkG.clearLayers();
+  const stack=new Map();                       // إزاحة بسيطة للأحداث في المكان نفسه
+  events.filter(e=>e.lat!=null).forEach(e=>{
+    const k=e.lat+','+e.lng, n=stack.get(k)||0; stack.set(k,n+1);
+    const c=SEV[e.severity];
+    L.circleMarker([e.lat+n*0.35, e.lng+n*0.35],
+      {radius:e.severity==='high'?8:6,color:c,weight:2,fillColor:c,fillOpacity:.5})
+     .bindTooltip(`${e.place} — ${e.title.slice(0,46)}`,{direction:'top'})
+     .on('click',()=>open_(e.id))
+     .addTo(mkG);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   التنبيهات — للأحداث الحرجة الجديدة، ما دامت الصفحة مفتوحة
+   ══════════════════════════════════════════════════════════════ */
+let notiSeed=false; const notified=new Set();
+function askNotif(){
+  if(!('Notification' in window))
+    return toast('هذا المتصفح لا يدعم التنبيهات — على آيفون أضف الصفحة إلى الشاشة الرئيسية أولاً',6000);
+  Notification.requestPermission().then(p=>
+    toast(p==='granted'?'ستصلك تنبيهات الأخبار الحرجة ما دامت الصفحة مفتوحة':'لم يُسمح بالتنبيهات'));
+}
+function notifyNew(){
+  const hi=events.filter(e=>e.severity==='high');
+  if(!notiSeed){ hi.forEach(e=>notified.add(norm(e.title).slice(0,60))); notiSeed=true; return; }
+  if(!('Notification' in window)||Notification.permission!=='granted') return;
+  hi.forEach(e=>{
+    const k=norm(e.title).slice(0,60);
+    if(notified.has(k)) return; notified.add(k);
+    try{ new Notification('عاجل · '+e.place,{body:e.title}); }catch{}
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   النبض
+   ══════════════════════════════════════════════════════════════ */
+setInterval(()=>{
+  $('clk').textContent=new Date().toLocaleTimeString('ar-AE',{hour12:false});
+  if(busy){ $('nx').textContent='يسحب…'; return; }
+  left--;
+  $('nx').textContent = left>0 ? `بعد ${left} ث` : 'الآن…';
+  if(left<=0) pull();
+  paint(); render();
+},1000);
+
+/* الوضع النهاري/المسائي — تلقائي حسب الساعة، وقابل للتبديل يدوياً */
+function toggleMode(){
+  document.body.classList.toggle('day');
+  const d=document.body.classList.contains('day');
+  document.querySelector('meta[name=theme-color]').content=d?'#FBFAF7':'#14100E';
+  $('mode').setAttribute('aria-label', d?'الوضع المسائي':'الوضع النهاري');
+  toast(d?'الوضع النهاري · مناسب للطباعة والاجتماعات':'الوضع المسائي · مناسب لغرف العمليات');
+  setTimeout(()=>map?.invalidateSize(),260);
+}
+function autoMode(){
+  const h=new Date().getHours();
+  if(h>=7 && h<18) toggleMode();      // نهاراً افتراضياً فاتح
+}
+
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeSheet(); closeAI(); } });
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden) return;
+  // العودة للصفحة: إن كانت البيانات باردة نسحب فوراً بدل انتظار الدورة
+  const f=freshness();
+  if(f.age>240) pull(true); else paintFresh();
+});
+window.addEventListener('online',()=>{ toast('عادت الشبكة · إعادة سحب'); pull(true); });
+window.addEventListener('offline',()=>toast('انقطعت الشبكة — البيانات المعروضة قد تكون قديمة',5000));
+$('flt').addEventListener('input',e=>{ FILTER=e.target.value; render(); });
+
+initMap();
+autoMode();
+pull();   // السحب الأول لحظة الفتح
+</script>
+</body>
+</html>
